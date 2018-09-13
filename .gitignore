@@ -1,0 +1,14 @@
+.*
+__pycache__
+*.png
+*.jpeg
+log*
+*.hdf5
+*.pyc
+*.gz
+*.bz2
+*.tar
+*.jpg
+*.zip
+*.dat
+*.ckpt.*
