@@ -15,7 +15,8 @@ python genCaptchars.py --font_path /usr/share/fonts/dejavu/DejaVuSerif.ttf --out
 
 # RUN
 1. python trains.py
-2. tensorboard --logdir=/home/ec2-user/DYDL/captcha_trainer/model/CaptchaName.model
+2. tensorboard --logdir=/home/ec2-user/DYDL/captcha_trainer/model/
+3. http://52.87.225.202:6006/
 
 # INTRODUCTION
 https://www.jianshu.com/p/b1a5427db6e2
