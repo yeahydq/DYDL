@@ -6,10 +6,10 @@ System:
   Language: 'en-US'
   NeuralNet: 'CNNNet'
   Device: 'gpu:0'
-  TrainsPath: 'E:\Task\Trains\CY'
-  TrainRegex: '.*?(?=_.*\.)'
-  TestPath: 'E:\Task\TestGroup\CY'
-  TestRegex: '.*?(?=_.*\.)'
+  TrainsPath: '/tmp/generated_captcha_images_TRAIN'
+  TrainRegex: '.+?(?=\.)'
+  TestPath: '/tmp/generated_captcha_images_TEST'
+  TestRegex: '.+?(?=\.)'
 
 # TestNum: The number of samples for each test batch.
 # - A test for every saved steps, Default value is 100.

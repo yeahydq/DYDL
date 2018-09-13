@@ -2,13 +2,12 @@
 import random
 import string
 import os
+import argparse
 
 import sys
 import math
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-# 字体的位置，不同版本的系统会有不同
-font_path = '/Library/Fonts/Arial.ttf'
 # 生成几位数的验证码
 number = 4
 # 生成验证码图片的高度和宽度
@@ -59,10 +58,38 @@ def gene_code():
 
 if __name__ == "__main__":
 
-    CAPTCHA_IMAGE_FOLDER = "generated_captcha_images_DY"
+    parser = argparse.ArgumentParser()
+    # Input Arguments
+    parser.add_argument(
+        '--font_path',
+        help = 'path of the system front',
+        default = '/Library/Fonts/Arial.ttf'
+    )
+    parser.add_argument(
+        '--output',
+        help = 'path of the output',
+        default = '/tmp/captchars'
+    )
+    parser.add_argument(
+        '--records',
+        help = 'number of records to be generate',
+        default = 100,
+        type=int
+    )
+
+    args = parser.parse_args()
+    arguments = args.__dict__
+
+    # 字体的位置，不同版本的系统会有不同
+    # font_path = '/Library/Fonts/Arial.ttf'
+    #font_path = '/usr/share/fonts/dejavu/DejaVuSerif.ttf'
+    font_path = arguments['font_path']
+
+
+    CAPTCHA_IMAGE_FOLDER = arguments['output']
     # if the output directory does not exist, create it
     if not os.path.exists(CAPTCHA_IMAGE_FOLDER):
         os.makedirs(CAPTCHA_IMAGE_FOLDER)
-    for x in range(1000):
+    for x in range(int(arguments['records'])):
         gene_code()
 

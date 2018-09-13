@@ -10,3 +10,10 @@
 
 # INTRODUCTION
 https://www.jianshu.com/p/b1a5427db6e2
+
+
+# generate data
+python genCaptchars.py --font_path /usr/share/fonts/dejavu/DejaVuSerif.ttf --output /tmp/generated_captcha_images_TRAIN --records 10000
+
+
+python genCaptchars.py --font_path /usr/share/fonts/dejavu/DejaVuSerif.ttf --output /tmp/ec2-user/generated_captcha_images_TRAIN --records 100
