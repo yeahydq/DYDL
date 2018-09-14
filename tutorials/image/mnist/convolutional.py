@@ -28,7 +28,7 @@ import gzip
 import os
 import sys
 import time
-
+import re
 import numpy
 from six.moves import urllib
 from six.moves import xrange  # pylint: disable=redefined-builtin
@@ -50,7 +50,26 @@ EVAL_FREQUENCY = 100  # Number of steps between evaluations.
 
 
 FLAGS = None
+TOWER_NAME = 'tower'
+summary_dir = '/tmp/Mnist/'
 
+def _activation_summary(x):
+  """Helper to create summaries for activations.
+
+  Creates a summary that provides a histogram of activations.
+  Creates a summary that measures the sparsity of activations.
+
+  Args:
+    x: Tensor
+  Returns:
+    nothing
+  """
+  # Remove 'tower_[0-9]/' from the name in case this is a multi-GPU training
+  # session. This helps the clarity of presentation on tensorboard.
+  pass
+  tensor_name = re.sub('%s_[0-9]*/' % TOWER_NAME, '', x.op.name)
+  tf.summary.histogram(tensor_name + '/activations', x)
+  tf.summary.scalar(tensor_name + '/sparsity', tf.nn.zero_fraction(x))
 
 def data_type():
   """Return the type of the activations, weights, and placeholder variables."""
@@ -196,6 +215,8 @@ def main(_):
                         padding='SAME')
     # Bias and rectified linear non-linearity.
     relu = tf.nn.relu(tf.nn.bias_add(conv, conv1_biases))
+    _activation_summary(relu)
+
     # Max pooling. The kernel size spec {ksize} also follows the layout of
     # the data. Here we have a pooling window of 2, and a stride of 2.
     pool = tf.nn.max_pool(relu,
@@ -207,6 +228,7 @@ def main(_):
                         strides=[1, 1, 1, 1],
                         padding='SAME')
     relu = tf.nn.relu(tf.nn.bias_add(conv, conv2_biases))
+    _activation_summary(relu)
     pool = tf.nn.max_pool(relu,
                           ksize=[1, 2, 2, 1],
                           strides=[1, 2, 2, 1],
@@ -220,6 +242,7 @@ def main(_):
     # Fully connected layer. Note that the '+' operation automatically
     # broadcasts the biases.
     hidden = tf.nn.relu(tf.matmul(reshape, fc1_weights) + fc1_biases)
+    _activation_summary(hidden)
     # Add a 50% dropout during training only. Dropout also scales
     # activations such that no rescaling is needed at evaluation time.
     if train:
@@ -247,6 +270,8 @@ def main(_):
       train_size,          # Decay step.
       0.95,                # Decay rate.
       staircase=True)
+  tf.summary.scalar('learning_rate', learning_rate)
+
   # Use simple momentum for the optimization.
   optimizer = tf.train.MomentumOptimizer(learning_rate,
                                          0.9).minimize(loss,
@@ -280,12 +305,17 @@ def main(_):
         predictions[begin:, :] = batch_predictions[begin - size:, :]
     return predictions
 
+  # 汇总记录节点
+  merge = tf.summary.merge_all()
+
   # Create a local session to run the training.
   start_time = time.time()
   with tf.Session() as sess:
     # Run all the initializers to prepare the trainable parameters.
     tf.global_variables_initializer().run()
     print('Initialized!')
+    summary_writer = tf.summary.FileWriter(logdir=summary_dir, graph=sess.graph)
+
     # Loop through training steps.
     for step in xrange(int(num_epochs * train_size) // BATCH_SIZE):
       # Compute the offset of the current minibatch in the data.
@@ -297,8 +327,13 @@ def main(_):
       # node in the graph it should be fed to.
       feed_dict = {train_data_node: batch_data,
                    train_labels_node: batch_labels}
+
       # Run the optimizer to update weights.
-      sess.run(optimizer, feed_dict=feed_dict)
+      # sess.run(optimizer, feed_dict=feed_dict)
+      _, summary, train_loss = sess.run([optimizer, merge, loss],feed_dict=feed_dict)
+      # _, train_loss= sess.run([optimizer,loss],feed_dict=feed_dict)
+
+
       # print some extra information once reach the evaluation frequency
       if step % EVAL_FREQUENCY == 0:
         # fetch some extra nodes' data
@@ -321,7 +356,7 @@ def main(_):
       print('test_error', test_error)
       assert test_error == 0.0, 'expected 0.0 test_error, got %.2f' % (
           test_error,)
-
+    summary_writer.close()
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
