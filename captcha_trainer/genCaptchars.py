@@ -21,7 +21,7 @@ linecolor = (255, 0, 0)
 # 是否要加入干扰线
 draw_line = True
 # 加入干扰线条数的上下限
-line_number = (3, 10)
+line_number = (1, 3)
 
 
 # 用来随机生成一个字符串
@@ -51,9 +51,9 @@ def gene_code():
               font=font, fill=fontcolor)  # 填充字符串
     if draw_line:
         gene_line(draw, width, height)
-    image = image.transform((width+30,height+10), Image.AFFINE, (1,-0.3,0,-0.1,1,0),Image.BILINEAR)  #创建扭曲
-    image = image.transform((width + 20, height + 10), Image.AFFINE, (1, -0.3, 0, -0.1, 1, 0), Image.BILINEAR)  # 创建扭曲
-    image = image.filter(ImageFilter.EDGE_ENHANCE_MORE)  # 滤镜，边界加强
+    #image = image.transform((width+30,height+10), Image.AFFINE, (1,-0.3,0,-0.1,1,0),Image.BILINEAR)  #创建扭曲
+    #image = image.transform((width + 20, height + 10), Image.AFFINE, (1, -0.3, 0, -0.1, 1, 0), Image.BILINEAR)  # 创建扭曲
+    #image = image.filter(ImageFilter.EDGE_ENHANCE_MORE)  # 滤镜，边界加强
     image.save(os.path.join(CAPTCHA_IMAGE_FOLDER, "{}.png".format(str(text))))
 
 if __name__ == "__main__":

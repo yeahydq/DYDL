@@ -3,10 +3,10 @@
 
 
 # generate data
-python genCaptchars.py --font_path /usr/share/fonts/dejavu/DejaVuSerif.ttf --output /tmp/generated_captcha_images_TRAIN --records 10000
+python genCaptchars.py --font_path /usr/share/fonts/dejavu/DejaVuSerif.ttf --output /tmp/generated_captcha_images_TRAIN --records 100
 
 
-python genCaptchars.py --font_path /usr/share/fonts/dejavu/DejaVuSerif.ttf --output /tmp/generated_captcha_images_TEST --records 100
+python genCaptchars.py --font_path /usr/share/fonts/dejavu/DejaVuSerif.ttf --output /tmp/generated_captcha_images_TEST --records 10
 
 
 # CONFIGURATION
@@ -14,9 +14,10 @@ python genCaptchars.py --font_path /usr/share/fonts/dejavu/DejaVuSerif.ttf --out
 1. model.yaml
 
 # RUN
-1. python trains.py
-2. tensorboard --logdir=/home/ec2-user/DYDL/captcha_trainer/model/
-3. http://52.87.225.202:6006/
+1. source activate tensorflow_p36
+2. python trains.py
+3. tensorboard --logdir=/model/capchar/model/
+4. http://52.87.225.202:6006/
 
 # INTRODUCTION
 https://www.jianshu.com/p/b1a5427db6e2
