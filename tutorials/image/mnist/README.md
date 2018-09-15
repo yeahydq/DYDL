@@ -1,3 +1,7 @@
-# Tutorial Models
+rm -rf /tmp/tensorflow/mnist/logs/mnist_with_summaries*
 
-This folder contains models referenced to from the [TensorFlow tutorials](https://www.tensorflow.org/tutorials/).
+cd DYDL/tutorials/image/mnist
+nohup python mnist_with_summary.py --max_steps 100000 --dropout 0.8 &
+
+tensorboard --logdir=/tmp/tensorflow/mnist/logs/mnist_with_summaries
+

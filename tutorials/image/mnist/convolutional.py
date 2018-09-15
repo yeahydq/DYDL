@@ -330,7 +330,8 @@ def main(_):
 
       # Run the optimizer to update weights.
       # sess.run(optimizer, feed_dict=feed_dict)
-      _, summary, train_loss = sess.run([optimizer, merge, loss],feed_dict=feed_dict)
+      _, summary = sess.run([optimizer, merge],feed_dict=feed_dict)
+      summary_writer.add_summary(summary, step)
       # _, train_loss= sess.run([optimizer,loss],feed_dict=feed_dict)
 
 

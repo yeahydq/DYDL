@@ -32,6 +32,93 @@ from tensorflow.examples.tutorials.mnist import input_data
 
 FLAGS = None
 
+w_alpha = 0.01
+b_alpha = 0.1
+POOL_SIZE = [2, 2]
+CONV_STRIDES = [1, 1, 1, 1]
+POOL_STRIDES = [1, 2, 2, 1]
+PADDING = 'SAME'
+CONV_CORE_SIZE = 3
+CONV_NEU_NUMS = [32,32,32]
+IMAGE_CHANNEL = 1
+NEU_LAYER_NUM = 3
+
+# We can't initialize these variables to 0 - the network will get stuck.
+def weight_variable(shape):
+    """Create a weight variable with appropriate initialization."""
+    initial = tf.truncated_normal(shape, stddev=0.1)
+    return tf.Variable(initial)
+
+
+def bias_variable(shape):
+    """Create a bias variable with appropriate initialization."""
+    initial = tf.constant(0.1, shape=shape)
+    return tf.Variable(initial)
+
+
+def variable_summaries(var):
+    """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
+    with tf.name_scope('summaries'):
+        mean = tf.reduce_mean(var)
+        tf.summary.scalar('mean', mean)
+        with tf.name_scope('stddev'):
+            stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+        tf.summary.scalar('stddev', stddev)
+        tf.summary.scalar('max', tf.reduce_max(var))
+        tf.summary.scalar('min', tf.reduce_min(var))
+        tf.summary.histogram('histogram', var)
+
+
+def nn_layer(input_tensor, input_dim, output_dim, layer_name, act=tf.nn.relu):
+    """Reusable code for making a simple neural net layer.
+    It does a matrix multiply, bias add, and then uses ReLU to nonlinearize.
+    It also sets up name scoping so that the resultant graph is easy to read,
+    and adds a number of summary ops.
+    """
+    # Adding a name scope ensures logical grouping of the layers in the graph.
+    with tf.name_scope(layer_name):
+        # This Variable will hold the state of the weights for the layer
+        with tf.name_scope('weights'):
+            weights = weight_variable([input_dim, output_dim])
+            variable_summaries(weights)
+        with tf.name_scope('biases'):
+            biases = bias_variable([output_dim])
+            variable_summaries(biases)
+        with tf.name_scope('Wx_plus_b'):
+            preactivate = tf.matmul(input_tensor, weights) + biases
+            tf.summary.histogram('pre_activations', preactivate)
+        activations = act(preactivate, name='activation')
+        tf.summary.histogram('activations', activations)
+        return activations
+
+def add_conv_layer(pre_conv, pre_neu_num, neu_num, num):
+    # filter: [filter_height, filter_width, in_channels, out_channels]
+
+    with tf.name_scope('conv_layer_{}'.format(num)):
+        with tf.name_scope('weight'):
+            # Patch Size: [CONV_CORE_SIZE*CONV_CORE_SIZE]
+            # pre_neu_num: [Number of Input Channels]
+            # neu_num: [Number of Output Channels]
+            weight = tf.Variable(w_alpha * tf.random_normal([CONV_CORE_SIZE, CONV_CORE_SIZE, pre_neu_num, neu_num]))
+        with tf.name_scope('biases'):
+            # Before Convolution: ?*IMAGE_HEIGHT * IMAGE_WIDTH * pre_neu_num
+            # After Convolution: ?*IMAGE_HEIGHT * IMAGE_WIDTH * neu_num
+            biases = tf.Variable(b_alpha * tf.random_normal([neu_num]))
+        conv = tf.nn.relu(
+            tf.nn.bias_add(tf.nn.conv2d(pre_conv, weight, strides=CONV_STRIDES, padding=PADDING), biases))
+        conv = tf.nn.max_pool(conv, ksize=POOL_STRIDES, strides=POOL_STRIDES, padding=PADDING)
+        conv = tf.nn.dropout(conv, FLAGS.dropout)
+        return conv, pre_neu_num, neu_num
+
+def conv_layer(pre_conv, num: int = 1):
+    neu_num = CONV_NEU_NUMS[num - 1]
+    in_channels = IMAGE_CHANNEL if num == 1 else CONV_NEU_NUMS[num - 2]
+    conv, pre_neu_num, neu_num = add_conv_layer(pre_conv, in_channels, neu_num, num)
+    # if num == NEU_LAYER_NUM:
+    if num == len(CONV_NEU_NUMS):
+        return conv, neu_num
+    return conv_layer(conv, num + 1)
+
 
 def train():
   # Import data
@@ -46,56 +133,17 @@ def train():
         x = tf.placeholder(tf.float32, [None, 784], name='x-input')
         y_ = tf.placeholder(tf.int64, [None], name='y-input')
 
+      # Dick: just for tensorboard chk only
       with tf.name_scope('input_reshape'):
         image_shaped_input = tf.reshape(x, [-1, 28, 28, 1])
         tf.summary.image('input', image_shaped_input, 10)
 
-      # We can't initialize these variables to 0 - the network will get stuck.
-      def weight_variable(shape):
-        """Create a weight variable with appropriate initialization."""
-        initial = tf.truncated_normal(shape, stddev=0.1)
-        return tf.Variable(initial)
+      with tf.name_scope('Conv_layer'):
+        conv, neu_num = conv_layer(image_shaped_input)
+        dense = tf.reshape(conv, [-1, 512])
 
-      def bias_variable(shape):
-        """Create a bias variable with appropriate initialization."""
-        initial = tf.constant(0.1, shape=shape)
-        return tf.Variable(initial)
-
-      def variable_summaries(var):
-        """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
-        with tf.name_scope('summaries'):
-          mean = tf.reduce_mean(var)
-          tf.summary.scalar('mean', mean)
-          with tf.name_scope('stddev'):
-            stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-          tf.summary.scalar('stddev', stddev)
-          tf.summary.scalar('max', tf.reduce_max(var))
-          tf.summary.scalar('min', tf.reduce_min(var))
-          tf.summary.histogram('histogram', var)
-
-      def nn_layer(input_tensor, input_dim, output_dim, layer_name, act=tf.nn.relu):
-        """Reusable code for making a simple neural net layer.
-        It does a matrix multiply, bias add, and then uses ReLU to nonlinearize.
-        It also sets up name scoping so that the resultant graph is easy to read,
-        and adds a number of summary ops.
-        """
-        # Adding a name scope ensures logical grouping of the layers in the graph.
-        with tf.name_scope(layer_name):
-          # This Variable will hold the state of the weights for the layer
-          with tf.name_scope('weights'):
-            weights = weight_variable([input_dim, output_dim])
-            variable_summaries(weights)
-          with tf.name_scope('biases'):
-            biases = bias_variable([output_dim])
-            variable_summaries(biases)
-          with tf.name_scope('Wx_plus_b'):
-            preactivate = tf.matmul(input_tensor, weights) + biases
-            tf.summary.histogram('pre_activations', preactivate)
-          activations = act(preactivate, name='activation')
-          tf.summary.histogram('activations', activations)
-          return activations
-
-      hidden1 = nn_layer(x, 784, 500, 'layer1')
+      # hidden1 = nn_layer(x, 784, 500, 'layer1')
+      hidden1 = nn_layer(dense, 512, 500, 'layer1')
 
       with tf.name_scope('dropout'):
         keep_prob = tf.placeholder(tf.float32)
@@ -116,14 +164,11 @@ def train():
         # So here we use tf.losses.sparse_softmax_cross_entropy on the
         # raw logit outputs of the nn_layer above, and then average across
         # the batch.
-        with tf.name_scope('total'):
-          cross_entropy = tf.losses.sparse_softmax_cross_entropy(
-              labels=y_, logits=y)
-      tf.summary.scalar('cross_entropy', cross_entropy)
+        cross_entropy = tf.losses.sparse_softmax_cross_entropy(labels=y_, logits=y)
+        tf.summary.scalar('cross_entropy', cross_entropy)
 
       with tf.name_scope('train'):
-        train_step = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(
-            cross_entropy)
+        train_step = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(cross_entropy)
 
       with tf.name_scope('accuracy'):
         with tf.name_scope('correct_prediction'):
@@ -142,7 +187,6 @@ def train():
       # Train the model, and also write summaries.
       # Every 10th step, measure test-set accuracy, and write test summaries
       # All other steps, run train_step on training data, & add training summaries
-
       def feed_dict(train):
         """Make a TensorFlow feed_dict: maps data onto Tensor placeholders."""
         if train or FLAGS.fake_data:
