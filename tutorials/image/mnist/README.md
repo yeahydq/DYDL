@@ -5,3 +5,5 @@ nohup python mnist_with_summary.py --max_steps 100000 --dropout 0.8 &
 
 tensorboard --logdir=/tmp/tensorflow/mnist/logs/mnist_with_summaries
 
+# model check point:
+/tmp/mnist_model

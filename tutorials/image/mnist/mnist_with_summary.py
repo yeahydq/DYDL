@@ -42,6 +42,10 @@ CONV_CORE_SIZE = 3
 CONV_NEU_NUMS = [32,32,32]
 IMAGE_CHANNEL = 1
 NEU_LAYER_NUM = 3
+MODEL_PATH='/tmp/mnist_model'
+SAVE_MODEL = os.path.join(MODEL_PATH, '{}.model'.format("CNN"))
+
+TRAINS_SAVE_STEP=50
 
 # We can't initialize these variables to 0 - the network will get stuck.
 def weight_variable(shape):
@@ -104,14 +108,20 @@ def add_conv_layer(pre_conv, pre_neu_num, neu_num, num):
             # Before Convolution: ?*IMAGE_HEIGHT * IMAGE_WIDTH * pre_neu_num
             # After Convolution: ?*IMAGE_HEIGHT * IMAGE_WIDTH * neu_num
             biases = tf.Variable(b_alpha * tf.random_normal([neu_num]))
-        conv = tf.nn.relu(
-            tf.nn.bias_add(tf.nn.conv2d(pre_conv, weight, strides=CONV_STRIDES, padding=PADDING), biases))
+        conv = tf.nn.relu(tf.nn.bias_add(tf.nn.conv2d(pre_conv, weight, strides=CONV_STRIDES, padding=PADDING), biases))
+
+        # TODO Dick: see how to show the interm picture
+        # shape=conv.get_shape().as_list()
+        # image_shaped_input = tf.reshape(conv, [-1, shape[1],shape[2],1])
+        # tf.summary.image('input', image_shaped_input, 10)
+
         conv = tf.nn.max_pool(conv, ksize=POOL_STRIDES, strides=POOL_STRIDES, padding=PADDING)
         conv = tf.nn.dropout(conv, FLAGS.dropout)
         return conv, pre_neu_num, neu_num
 
 def conv_layer(pre_conv, num: int = 1):
     neu_num = CONV_NEU_NUMS[num - 1]
+    # Dick: first layer = 1, otherwise use last layer's
     in_channels = IMAGE_CHANNEL if num == 1 else CONV_NEU_NUMS[num - 2]
     conv, pre_neu_num, neu_num = add_conv_layer(pre_conv, in_channels, neu_num, num)
     # if num == NEU_LAYER_NUM:
@@ -119,14 +129,28 @@ def conv_layer(pre_conv, num: int = 1):
         return conv, neu_num
     return conv_layer(conv, num + 1)
 
-
 def train():
   # Import data
   mnist = input_data.read_data_sets(FLAGS.data_dir,
                                     fake_data=FLAGS.fake_data)
+
+  # Train the model, and also write summaries.
+  # Every 10th step, measure test-set accuracy, and write test summaries
+  # All other steps, run train_step on training data, & add training summaries
+  def feed_dict(train):
+      """Make a TensorFlow feed_dict: maps data onto Tensor placeholders."""
+      if train or FLAGS.fake_data:
+          xs, ys = mnist.train.next_batch(100, fake_data=FLAGS.fake_data)
+          k = FLAGS.dropout
+      else:
+          xs, ys = mnist.test.images, mnist.test.labels
+          k = 1.0
+      return {x: xs, y_: ys, keep_prob: k}
+
   with tf.Session() as sess:
       # sess = tf.InteractiveSession()
       # Create a multilayer model.
+      global_steps = tf.Variable(0, trainable=False)
 
       # Input placeholders
       with tf.name_scope('input'):
@@ -143,7 +167,7 @@ def train():
         dense = tf.reshape(conv, [-1, 512])
 
       # hidden1 = nn_layer(x, 784, 500, 'layer1')
-      hidden1 = nn_layer(dense, 512, 500, 'layer1')
+      hidden1 = nn_layer(dense, 512, 500, 'DNN_layer1')
 
       with tf.name_scope('dropout'):
         keep_prob = tf.placeholder(tf.float32)
@@ -151,7 +175,7 @@ def train():
         dropped = tf.nn.dropout(hidden1, keep_prob)
 
       # Do not apply softmax activation yet, see below.
-      y = nn_layer(dropped, 500, 10, 'layer2', act=tf.identity)
+      y = nn_layer(dropped, 500, 10, 'DNN_layer2', act=tf.identity)
 
       with tf.name_scope('cross_entropy'):
         # The raw formulation of cross-entropy,
@@ -168,7 +192,7 @@ def train():
         tf.summary.scalar('cross_entropy', cross_entropy)
 
       with tf.name_scope('train'):
-        train_step = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(cross_entropy)
+        train_step = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(cross_entropy,global_step=global_steps)
 
       with tf.name_scope('accuracy'):
         with tf.name_scope('correct_prediction'):
@@ -177,33 +201,34 @@ def train():
           accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
       tf.summary.scalar('accuracy', accuracy)
 
+      tf.global_variables_initializer().run()
+
       # Merge all the summaries and write them out to
       # /tmp/tensorflow/mnist/logs/mnist_with_summaries (by default)
       merged = tf.summary.merge_all()
       train_writer = tf.summary.FileWriter(FLAGS.log_dir + '/train', sess.graph)
       test_writer = tf.summary.FileWriter(FLAGS.log_dir + '/test')
-      tf.global_variables_initializer().run()
 
-      # Train the model, and also write summaries.
-      # Every 10th step, measure test-set accuracy, and write test summaries
-      # All other steps, run train_step on training data, & add training summaries
-      def feed_dict(train):
-        """Make a TensorFlow feed_dict: maps data onto Tensor placeholders."""
-        if train or FLAGS.fake_data:
-          xs, ys = mnist.train.next_batch(100, fake_data=FLAGS.fake_data)
-          k = FLAGS.dropout
-        else:
-          xs, ys = mnist.test.images, mnist.test.labels
-          k = 1.0
-        return {x: xs, y_: ys, keep_prob: k}
+      # Dick: create check point for training
+      saver = tf.train.Saver(tf.global_variables(), max_to_keep=2)  # 将训练过程进行保存
+      # Dick: check if there any latest check pint (from checkpoint file), if yes, then load it
+      kpt=tf.train.latest_checkpoint(MODEL_PATH)
+      if kpt !=None:
+          print("Restore from check point file: {}".format(kpt))
+          saver.restore(sess,kpt)
 
       for i in range(FLAGS.max_steps):
         if i % 10 == 0:  # Record summaries and test-set accuracy
           summary, acc = sess.run([merged, accuracy], feed_dict=feed_dict(False))
           test_writer.add_summary(summary, i)
           print('Accuracy at step %s: %s' % (i, acc))
+          print("Golbal step is : {}".format(sess.run(global_steps)))
+          if i % TRAINS_SAVE_STEP == 0:
+              saver.save(sess, SAVE_MODEL, global_step=i)
+          else:
+              continue
         else:  # Record train set summaries, and train
-          if i % 100 == 99:  # Record execution stats
+          if i % 100 == 0:  # Record execution stats
             run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
             run_metadata = tf.RunMetadata()
             summary, _ = sess.run([merged, train_step],
