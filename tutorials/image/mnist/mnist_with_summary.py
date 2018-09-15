@@ -192,6 +192,7 @@ def train():
         tf.summary.scalar('cross_entropy', cross_entropy)
 
       with tf.name_scope('train'):
+        # This step also update the global step +1
         train_step = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(cross_entropy,global_step=global_steps)
 
       with tf.name_scope('accuracy'):
@@ -209,7 +210,7 @@ def train():
       train_writer = tf.summary.FileWriter(FLAGS.log_dir + '/train', sess.graph)
       test_writer = tf.summary.FileWriter(FLAGS.log_dir + '/test')
 
-      # Dick: create check point for training
+      # Dick: create check point for training, and keep 2 verion only
       saver = tf.train.Saver(tf.global_variables(), max_to_keep=2)  # 将训练过程进行保存
       # Dick: check if there any latest check pint (from checkpoint file), if yes, then load it
       kpt=tf.train.latest_checkpoint(MODEL_PATH)
