@@ -54,13 +54,16 @@ def gene_code(picID=0):
         draw = ImageDraw.Draw(image)  # 创建画笔
         text = gene_text()  # 生成字符串
         font_width, font_height = font.getsize(text)
+        fontcolor = (random.randint(0,256), random.randint(0,256), random.randint(0,256))
         draw.text(((width - font_width) / number, (height - font_height) / number), text,
                   font=font, fill=fontcolor)  # 填充字符串
         if draw_line:
             gene_line(draw, width, height)
-        #image = image.transform((width+30,height+10), Image.AFFINE, (1,-0.3,0,-0.1,1,0),Image.BILINEAR)  #创建扭曲
-        #image = image.transform((width + 20, height + 10), Image.AFFINE, (1, -0.3, 0, -0.1, 1, 0), Image.BILINEAR)  # 创建扭曲
-        #image = image.filter(ImageFilter.EDGE_ENHANCE_MORE)  # 滤镜，边界加强
+        # image = image.transform((width+random.randint(0,15),height+random.randint(0,15)), Image.AFFINE, (1,-0.3,0,-0.1,1,0),Image.BILINEAR)  #创建扭曲
+        # image = image.transform((width+random.randint(0,5), height+random.randint(0,5)), Image.AFFINE, (1, -0.3, 0, -0.1, 1, 0), Image.BILINEAR)  # 创建扭曲
+        # image = image.transform((width+30,height+10), Image.AFFINE, (1,-0.3,0,-0.1,1,0),Image.BILINEAR)  #创建扭曲
+        # image = image.transform((width + 20, height + 10), Image.AFFINE, (1, -0.3, 0, -0.1, 1, 0), Image.BILINEAR)  # 创建扭曲
+        image = image.filter(ImageFilter.EDGE_ENHANCE_MORE)  # 滤镜，边界加强
         jpgName="{}_{}_{}.jpg".format(fontName.replace('.ttf','').replace('.ttc',''),str(picID),str(text))
 
         image.save(os.path.join(JPEGPath, jpgName))
@@ -94,7 +97,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--records',
         help = 'number of records to be generate',
-        default = 100,
+        default = 10000,
         type=int
     )
 
