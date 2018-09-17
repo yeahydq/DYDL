@@ -100,9 +100,7 @@ If you want to use original pretrained weights for YOLOv3:
 
 
 source activate tensorflow_p36
-python genFile.py
-find ./ -type f
-find ./ -type f | xargs -n1 rm
+tar -xvf VOCdevkit.tar
 python genFile.py
 # update the classes
 vi voc_annotation.py
