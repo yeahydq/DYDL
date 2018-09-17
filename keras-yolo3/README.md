@@ -98,9 +98,16 @@ If you want to use original pretrained weights for YOLOv3:
 
 7. For speeding up the training process with frozen layers train_bottleneck.py can be used. It will compute the bottleneck features of the frozen model first and then only trains the last layers. This makes training on CPU possible in a reasonable time. See [this](https://blog.keras.io/building-powerful-image-classification-models-using-very-little-data.html) for more information on bottleneck features.
 
-
+## Dick's note
 source activate tensorflow_p36
-tar -xvf VOCdevkit.tar
+git clone https://github.com/yeahydq/DYDL.git
+
+pip install pillow
+cd DYDL/captcha_trainer
+tar -xvf ../keras-yolo3/VOCdevkit.tar -C ../keras-yolo3/
+python genCaptchars_For_VOC.py --output ../keras-yolo3/VOCdevkit/VOC2012
+
+cd ../keras-yolo3/
 python genFile.py
 # update the classes
 vi voc_annotation.py
@@ -111,8 +118,11 @@ vi model_data/coco_classes.txt
 vi yolov3.cfg
 
 
-cp /home/ec2-user/keras-yolo3/yoloPrepare/2012_train.txt ./train.txt
-mkdir -p logs/000/
-rm -f logs/000/* model_data/yolo_weights.h5
+cp 2012_train.txt ./train.txt
+mkdir -p /model/yolo
+rm -f /model/yolo/* model_data/yolo_weights.h5
 nohup python dyTrain.py &
+nohup tensorboard --logdir=/model/yolo &
 
+
+watch -n 2 nvidia-smi

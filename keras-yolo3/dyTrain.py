@@ -14,7 +14,7 @@ from yolo3.utils import get_random_data
 
 def _main():
     annotation_path = 'train.txt'
-    log_dir = 'logs/000/'
+    log_dir = '/model/yolo/'
     classes_path = 'model_data/voc_classes.txt'
     anchors_path = 'model_data/yolo_anchors.txt'
     class_names = get_classes(classes_path)
@@ -28,12 +28,12 @@ def train(model, annotation_path, input_shape, anchors, num_classes, log_dir='lo
         'yolo_loss': lambda y_true, y_pred: y_pred})
     logging = TensorBoard(log_dir=log_dir)
     checkpoint = ModelCheckpoint(log_dir + "ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5",
-        monitor='val_loss', save_weights_only=True, save_best_only=True, period=50)
+        monitor='val_loss', save_weights_only=True, save_best_only=True, period=1)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1)
 
-    batch_size = 10
-    val_split = 0.1
+    batch_size = 16
+    val_split = 0.2
     with open(annotation_path) as f:
         lines = f.readlines()
     np.random.shuffle(lines)
