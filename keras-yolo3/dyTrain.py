@@ -6,7 +6,7 @@ import numpy as np
 import keras.backend as K
 from keras.layers import Input, Lambda
 from keras.models import Model
-from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping
+from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping,ReduceLROnPlateau
 
 from yolo3.model import preprocess_true_boxes, yolo_body, tiny_yolo_body, yolo_loss
 from yolo3.utils import get_random_data
@@ -29,6 +29,9 @@ def train(model, annotation_path, input_shape, anchors, num_classes, log_dir='lo
     logging = TensorBoard(log_dir=log_dir)
     checkpoint = ModelCheckpoint(log_dir + "ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5",
         monitor='val_loss', save_weights_only=True, save_best_only=True, period=50)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
+    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1)
+
     batch_size = 10
     val_split = 0.1
     with open(annotation_path) as f:
@@ -43,7 +46,9 @@ def train(model, annotation_path, input_shape, anchors, num_classes, log_dir='lo
             validation_data=data_generator_wrap(lines[num_train:], batch_size, input_shape, anchors, num_classes),
             validation_steps=max(1, num_val//batch_size),
             epochs=500,
-            initial_epoch=0,callbacks=[logging, checkpoint])
+            initial_epoch=0,
+            callbacks = [logging, checkpoint, reduce_lr, early_stopping]
+            )
     model.save_weights(log_dir + 'trained_weights.h5')
 
 def get_classes(classes_path):
