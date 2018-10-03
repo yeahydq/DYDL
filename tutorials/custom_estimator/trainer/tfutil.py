@@ -2,7 +2,7 @@
 import tensorflow as tf
 import re
 
-def fc_layer(bottom, neurons,name,actvation=None,reTrain=False):
+def fc_layer(bottom, neurons,name,activation=None,reTrain=False):
     with tf.variable_scope(name):
         shape = bottom.get_shape().as_list()
         dim = 1
@@ -16,8 +16,8 @@ def fc_layer(bottom, neurons,name,actvation=None,reTrain=False):
         # Fully connected layer. Note that the '+' operation automatically
         # broadcasts the biases.
         fc = tf.nn.bias_add(tf.matmul(x, weights), biases)
-        if actvation is not None:
-            fc=actvation(fc)
+        if activation is not None:
+            fc=activation(fc)
         _activation_summary(fc)
     return fc
 

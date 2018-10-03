@@ -37,14 +37,14 @@ def custom_estimator(features, labels, mode, params):
     input_layer = tf.feature_column.input_layer(features, params['parm_feature_columns'])
 
     # 1. Define Model Architecture
-    fc0 = tf.layers.dense(input_layer, 30, activation=None, name='fc0')
-    fc1 = tf.layers.dense(fc0, 20, tf.nn.relu, name='fc1')
-    fc2 = tf.layers.dense(fc1, 20, activation=None, name='fc2')
-    fc3 = fc_layer(fc2, 20, "fc3", actvation=tf.nn.relu)
-    fc4 = fc_layer(fc3, 20, "fc4")
-    predictions = tf.layers.dense(fc4, 1, activation=None, name='predictions')
+    # fc0 = tf.layers.dense(input_layer, 30, activation=None, name='fc0')
+    # fc1 = tf.layers.dense(fc0, 20, activation=None, name='fc1')
+    # fc2 = tf.layers.dense(fc1, 20, activation=None, name='fc2')
+    # fc3 = fc_layer(fc2, 20, "fc3", activation=None)
+    # fc4 = fc_layer(fc3, 20, "fc4", activation=None)
+    # predictions = tf.layers.dense(fc4, 1, activation=None, name='predictions')
 
-    #   predictions = tf.layers.dense(input_layer,1,activation=None)
+    predictions = tf.layers.dense(input_layer,1,activation=None)
 
     # 2. Loss function, training/eval ops
     if mode == tf.estimator.ModeKeys.TRAIN or mode == tf.estimator.ModeKeys.EVAL:
@@ -82,7 +82,7 @@ def custom_estimator(features, labels, mode, params):
     )
 
 # Build the estimator
-def build_estimator(model_dir, nbuckets, hidden_units):
+def build_estimator(model_dir):
     """
      Build an estimator starting from INPUT COLUMNS.
      These include feature transformations and synthetic features.
@@ -127,6 +127,7 @@ def add_engineered(features):
     features['num_rooms'] = features['total_rooms'] / features['households']
     features['num_bedrooms'] = features['total_bedrooms'] / features['households']
     features['persons_per_house'] = features['population'] / features['households']
+
     return features
 
 
@@ -155,43 +156,68 @@ def serving_input_fn():
 
 
 # Create input function to load data into datasets, return dict with fieldName/value
+# def read_dataset(filename, mode, batch_size=512):
+#     def _input_fn():
+#         def decode_csv(value_column):
+#             columns = tf.decode_csv(value_column, record_defaults=DEFAULTS)
+#             features = dict(zip(CSV_COLUMNS, columns))
+#             # remove label column
+#             label = features.pop(LABEL_COLUMN)/SCALE
+#             return add_engineered(features), label
+#
+#         # Create list of files that match pattern
+#         file_list = tf.gfile.Glob(filename)
+#
+#         # Create dataset from file list
+#         dataset = tf.data.TextLineDataset(file_list).skip(1).map(decode_csv)
+#
+#         if mode == tf.estimator.ModeKeys.TRAIN:
+#             num_epochs = None  # indefinitely
+#             dataset = dataset.shuffle(buffer_size=10 * batch_size)
+#         else:
+#             num_epochs = 1  # end-of-input after this
+#
+#         dataset = dataset.repeat(num_epochs).batch(batch_size)
+#         batch_features, batch_labels = dataset.make_one_shot_iterator().get_next()
+#         return batch_features, batch_labels
+#
+#     return _input_fn
+
 def read_dataset(filename, mode, batch_size=512):
-    def _input_fn():
-        def decode_csv(value_column):
-            columns = tf.decode_csv(value_column, record_defaults=DEFAULTS)
-            features = dict(zip(CSV_COLUMNS, columns))
-            # remove label column
-            label = features.pop(LABEL_COLUMN)
-            return add_engineered(features), label
+    import pandas as pd
+    df = pd.read_csv(filename, sep=",")
 
-        # Create list of files that match pattern
-        file_list = tf.gfile.Glob(filename)
-
-        # Create dataset from file list
-        dataset = tf.data.TextLineDataset(file_list).skip(1).map(decode_csv)
-
-        if mode == tf.estimator.ModeKeys.TRAIN:
-            num_epochs = None  # indefinitely
-            dataset = dataset.shuffle(buffer_size=10 * batch_size)
-        else:
-            num_epochs = 1  # end-of-input after this
-
-        dataset = dataset.repeat(num_epochs).batch(batch_size)
-        batch_features, batch_labels = dataset.make_one_shot_iterator().get_next()
-        return batch_features, batch_labels
-
-    return _input_fn
-
+    INPUT_COLUMNS = [
+        "housing_median_age", "median_income", "num_rooms", "num_bedrooms", "persons_per_house", "longitude",
+        "latitude"
+    ]
+    df = add_engineered(df)
+    msk = np.random.rand(len(df)) < 0.8
+    traindf = df[msk]
+    evaldf = df[~msk]
+    if mode == tf.estimator.ModeKeys.TRAIN:
+        return tf.estimator.inputs.pandas_input_fn(x=traindf[INPUT_COLUMNS],
+                                                         y=traindf["median_house_value"] / SCALE,
+                                                         num_epochs=None,
+                                                         batch_size=batch_size,
+                                                         shuffle=True)
+    else:
+        return tf.estimator.inputs.pandas_input_fn(x=evaldf[INPUT_COLUMNS],
+                                                        y=evaldf["median_house_value"] / SCALE,  # note the scaling
+                                                        num_epochs=1,
+                                                        batch_size=batch_size,
+                                                        shuffle=False)
 
 # Create estimator train and evaluate function
 def train_and_evaluate(args):
-    estimator = build_estimator(args['output_dir'], args['nbuckets'], args['hidden_units'].split(' '))
+    estimator = build_estimator(args['output_dir'])
     # 1/2 train spec
     train_spec = tf.estimator.TrainSpec(
         input_fn=read_dataset(
             filename=args['train_data_paths'],
             mode=tf.estimator.ModeKeys.TRAIN,
             batch_size=args['train_batch_size']),
+        # input_fn=train_input_fn,
         max_steps=args['train_steps'])
     # 2/2 evaluation spec
     exporter = tf.estimator.LatestExporter('exporter', serving_input_fn)
@@ -200,7 +226,8 @@ def train_and_evaluate(args):
             filename=args['eval_data_paths'],
             mode=tf.estimator.ModeKeys.EVAL,
             batch_size=args['eval_batch_size']),
-        steps=100,
+        # input_fn=eval_input_fn,
+        steps=args['eval_steps'],
         exporters=exporter)
 
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
