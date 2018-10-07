@@ -39,13 +39,14 @@ CONV_STRIDES = [1, 1, 1, 1]
 POOL_STRIDES = [1, 2, 2, 1]
 PADDING = 'SAME'
 CONV_CORE_SIZE = 3
-CONV_NEU_NUMS = [32,32,32]
+CONV_NEU_NUMS = [32, 32, 32]
 IMAGE_CHANNEL = 1
 NEU_LAYER_NUM = 3
-MODEL_PATH='/tmp/mnist_model'
+MODEL_PATH = '/tmp/mnist_model'
 SAVE_MODEL = os.path.join(MODEL_PATH, '{}.model'.format("CNN"))
 
-TRAINS_SAVE_STEP=50
+TRAINS_SAVE_STEP = 50
+
 
 # We can't initialize these variables to 0 - the network will get stuck.
 def weight_variable(shape):
@@ -95,6 +96,7 @@ def nn_layer(input_tensor, input_dim, output_dim, layer_name, act=tf.nn.relu):
         tf.summary.histogram('activations', activations)
         return activations
 
+
 def add_conv_layer(pre_conv, pre_neu_num, neu_num, num):
     # filter: [filter_height, filter_width, in_channels, out_channels]
 
@@ -119,6 +121,7 @@ def add_conv_layer(pre_conv, pre_neu_num, neu_num, num):
         conv = tf.nn.dropout(conv, FLAGS.dropout)
         return conv, pre_neu_num, neu_num
 
+
 def conv_layer(pre_conv, num: int = 1):
     neu_num = CONV_NEU_NUMS[num - 1]
     # Dick: first layer = 1, otherwise use last layer's
@@ -129,152 +132,153 @@ def conv_layer(pre_conv, num: int = 1):
         return conv, neu_num
     return conv_layer(conv, num + 1)
 
+
 def train():
-  # Import data
-  mnist = input_data.read_data_sets(FLAGS.data_dir,
-                                    fake_data=FLAGS.fake_data)
+    # Import data
+    mnist = input_data.read_data_sets(FLAGS.data_dir,
+                                      fake_data=FLAGS.fake_data)
 
-  # Train the model, and also write summaries.
-  # Every 10th step, measure test-set accuracy, and write test summaries
-  # All other steps, run train_step on training data, & add training summaries
-  def feed_dict(train):
-      """Make a TensorFlow feed_dict: maps data onto Tensor placeholders."""
-      if train or FLAGS.fake_data:
-          xs, ys = mnist.train.next_batch(100, fake_data=FLAGS.fake_data)
-          k = FLAGS.dropout
-      else:
-          xs, ys = mnist.test.images, mnist.test.labels
-          k = 1.0
-      return {x: xs, y_: ys, keep_prob: k}
+    # Train the model, and also write summaries.
+    # Every 10th step, measure test-set accuracy, and write test summaries
+    # All other steps, run train_step on training data, & add training summaries
+    def feed_dict(train):
+        """Make a TensorFlow feed_dict: maps data onto Tensor placeholders."""
+        if train or FLAGS.fake_data:
+            xs, ys = mnist.train.next_batch(100, fake_data=FLAGS.fake_data)
+            k = FLAGS.dropout
+        else:
+            xs, ys = mnist.test.images, mnist.test.labels
+            k = 1.0
+        return {x: xs, y_: ys, keep_prob: k}
 
-  with tf.Session() as sess:
-      # sess = tf.InteractiveSession()
-      # Create a multilayer model.
-      global_steps = tf.Variable(0, trainable=False)
+    with tf.Session() as sess:
+        # sess = tf.InteractiveSession()
+        # Create a multilayer model.
+        global_steps = tf.Variable(0, trainable=False)
 
-      # Input placeholders
-      with tf.name_scope('input'):
-        x = tf.placeholder(tf.float32, [None, 784], name='x-input')
-        y_ = tf.placeholder(tf.int64, [None], name='y-input')
+        # Input placeholders
+        with tf.name_scope('input'):
+            x = tf.placeholder(tf.float32, [None, 784], name='x-input')
+            y_ = tf.placeholder(tf.int64, [None], name='y-input')
 
-      # Dick: just for tensorboard chk only
-      with tf.name_scope('input_reshape'):
-        image_shaped_input = tf.reshape(x, [-1, 28, 28, 1])
-        tf.summary.image('input', image_shaped_input, 10)
+        # Dick: just for tensorboard (image) chk only
+        with tf.name_scope('input_reshape'):
+            image_shaped_input = tf.reshape(x, [-1, 28, 28, 1])
+            tf.summary.image('input', image_shaped_input, 10)
 
-      with tf.name_scope('Conv_layer'):
-        conv, neu_num = conv_layer(image_shaped_input)
-        dense = tf.reshape(conv, [-1, 512])
+        with tf.name_scope('Conv_layer'):
+            conv, neu_num = conv_layer(image_shaped_input)
+            dense = tf.reshape(conv, [-1, 512])
 
-      # hidden1 = nn_layer(x, 784, 500, 'layer1')
-      hidden1 = nn_layer(dense, 512, 500, 'DNN_layer1')
+        # hidden1 = nn_layer(x, 784, 500, 'layer1')
+        hidden1 = nn_layer(dense, 512, 500, 'DNN_layer1')
 
-      with tf.name_scope('dropout'):
-        keep_prob = tf.placeholder(tf.float32)
-        tf.summary.scalar('dropout_keep_probability', keep_prob)
-        dropped = tf.nn.dropout(hidden1, keep_prob)
+        with tf.name_scope('dropout'):
+            keep_prob = tf.placeholder(tf.float32)
+            tf.summary.scalar('dropout_keep_probability', keep_prob)
+            dropped = tf.nn.dropout(hidden1, keep_prob)
 
-      # Do not apply softmax activation yet, see below.
-      y = nn_layer(dropped, 500, 10, 'DNN_layer2', act=tf.identity)
+        # Do not apply softmax activation yet, see below.
+        y = nn_layer(dropped, 500, 10, 'DNN_layer2', act=tf.identity)
 
-      with tf.name_scope('cross_entropy'):
-        # The raw formulation of cross-entropy,
-        #
-        # tf.reduce_mean(-tf.reduce_sum(y_ * tf.log(tf.softmax(y)),
-        #                               reduction_indices=[1]))
-        #
-        # can be numerically unstable.
-        #
-        # So here we use tf.losses.sparse_softmax_cross_entropy on the
-        # raw logit outputs of the nn_layer above, and then average across
-        # the batch.
-        cross_entropy = tf.losses.sparse_softmax_cross_entropy(labels=y_, logits=y)
-        tf.summary.scalar('cross_entropy', cross_entropy)
+        with tf.name_scope('cross_entropy'):
+            # The raw formulation of cross-entropy,
+            #
+            # tf.reduce_mean(-tf.reduce_sum(y_ * tf.log(tf.softmax(y)),
+            #                               reduction_indices=[1]))
+            #
+            # can be numerically unstable.
+            #
+            # So here we use tf.losses.sparse_softmax_cross_entropy on the
+            # raw logit outputs of the nn_layer above, and then average across
+            # the batch.
+            cross_entropy = tf.losses.sparse_softmax_cross_entropy(labels=y_, logits=y)
+            tf.summary.scalar('cross_entropy', cross_entropy)
 
-      with tf.name_scope('train'):
-        # This step also update the global step +1
-        train_step = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(cross_entropy,global_step=global_steps)
+        with tf.name_scope('train'):
+            # This step also update the global step +1
+            train_step = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(cross_entropy, global_step=global_steps)
 
-      with tf.name_scope('accuracy'):
-        with tf.name_scope('correct_prediction'):
-          correct_prediction = tf.equal(tf.argmax(y, 1), y_)
         with tf.name_scope('accuracy'):
-          accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-      tf.summary.scalar('accuracy', accuracy)
+            with tf.name_scope('correct_prediction'):
+                correct_prediction = tf.equal(tf.argmax(y, 1), y_)
+            with tf.name_scope('accuracy'):
+                accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+        tf.summary.scalar('accuracy', accuracy)
 
-      tf.global_variables_initializer().run()
+        tf.global_variables_initializer().run()
 
-      # Merge all the summaries and write them out to
-      # /tmp/tensorflow/mnist/logs/mnist_with_summaries (by default)
-      merged = tf.summary.merge_all()
-      train_writer = tf.summary.FileWriter(FLAGS.log_dir + '/train', sess.graph)
-      test_writer = tf.summary.FileWriter(FLAGS.log_dir + '/test')
+        # Merge all the summaries and write them out to
+        # /tmp/tensorflow/mnist/logs/mnist_with_summaries (by default)
+        merged = tf.summary.merge_all()
+        train_writer = tf.summary.FileWriter(FLAGS.log_dir + '/train', sess.graph)
+        test_writer = tf.summary.FileWriter(FLAGS.log_dir + '/test')
 
-      # Dick: create check point for training, and keep 2 verion only
-      saver = tf.train.Saver(tf.global_variables(), max_to_keep=2)  # 将训练过程进行保存
-      # Dick: check if there any latest check pint (from checkpoint file), if yes, then load it
-      kpt=tf.train.latest_checkpoint(MODEL_PATH)
-      if kpt !=None:
-          print("Restore from check point file: {}".format(kpt))
-          saver.restore(sess,kpt)
+        # Dick: create check point for training, and keep 2 verion only
+        saver = tf.train.Saver(tf.global_variables(), max_to_keep=2)  # 将训练过程进行保存
+        # Dick: check if there any latest check pint (from checkpoint file), if yes, then load it
+        kpt = tf.train.latest_checkpoint(MODEL_PATH)
+        if kpt != None:
+            print("Restore from check point file: {}".format(kpt))
+            saver.restore(sess, kpt)
 
-      for i in range(FLAGS.max_steps):
-        if i % 10 == 0:  # Record summaries and test-set accuracy
-          summary, acc = sess.run([merged, accuracy], feed_dict=feed_dict(False))
-          test_writer.add_summary(summary, i)
-          print('Accuracy at step %s: %s' % (i, acc))
-          print("Golbal step is : {}".format(sess.run(global_steps)))
-          if i % TRAINS_SAVE_STEP == 0:
-              saver.save(sess, SAVE_MODEL, global_step=i)
-          else:
-              continue
-        else:  # Record train set summaries, and train
-          if i % 100 == 0:  # Record execution stats
-            run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-            run_metadata = tf.RunMetadata()
-            summary, _ = sess.run([merged, train_step],
-                                  feed_dict=feed_dict(True),
-                                  options=run_options,
-                                  run_metadata=run_metadata)
-            train_writer.add_run_metadata(run_metadata, 'step%03d' % i)
-            train_writer.add_summary(summary, i)
-            print('Adding run metadata for', i)
-          else:  # Record a summary
-            summary, _ = sess.run([merged, train_step], feed_dict=feed_dict(True))
-            train_writer.add_summary(summary, i)
-      train_writer.close()
-      test_writer.close()
+        for i in range(FLAGS.max_steps):
+            if i % 10 == 0:  # Record summaries and test-set accuracy
+                summary, acc = sess.run([merged, accuracy], feed_dict=feed_dict(False))
+                test_writer.add_summary(summary, i)
+                print('Accuracy at step %s: %s' % (i, acc))
+                print("Golbal step is : {}".format(sess.run(global_steps)))
+                if i % TRAINS_SAVE_STEP == 0:
+                    saver.save(sess, SAVE_MODEL, global_step=i)
+                else:
+                    continue
+            else:  # Record train set summaries, and train
+                if i % 100 == 0:  # Record execution stats
+                    run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                    run_metadata = tf.RunMetadata()
+                    summary, _ = sess.run([merged, train_step],
+                                          feed_dict=feed_dict(True),
+                                          options=run_options,
+                                          run_metadata=run_metadata)
+                    train_writer.add_run_metadata(run_metadata, 'step%03d' % i)
+                    train_writer.add_summary(summary, i)
+                    print('Adding run metadata for', i)
+                else:  # Record a summary
+                    summary, _ = sess.run([merged, train_step], feed_dict=feed_dict(True))
+                    train_writer.add_summary(summary, i)
+        train_writer.close()
+        test_writer.close()
 
 
 def main(_):
-  if tf.gfile.Exists(FLAGS.log_dir):
-    tf.gfile.DeleteRecursively(FLAGS.log_dir)
-  tf.gfile.MakeDirs(FLAGS.log_dir)
-  train()
+    if tf.gfile.Exists(FLAGS.log_dir):
+        tf.gfile.DeleteRecursively(FLAGS.log_dir)
+    tf.gfile.MakeDirs(FLAGS.log_dir)
+    train()
 
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser()
-  parser.add_argument('--fake_data', nargs='?', const=True, type=bool,
-                      default=False,
-                      help='If true, uses fake data for unit testing.')
-  parser.add_argument('--max_steps', type=int, default=1000,
-                      help='Number of steps to run trainer.')
-  parser.add_argument('--learning_rate', type=float, default=0.001,
-                      help='Initial learning rate')
-  parser.add_argument('--dropout', type=float, default=0.9,
-                      help='Keep probability for training dropout.')
-  parser.add_argument(
-      '--data_dir',
-      type=str,
-      default=os.path.join(os.getenv('TEST_TMPDIR', '/tmp'),
-                           'tensorflow/mnist/input_data'),
-      help='Directory for storing input data')
-  parser.add_argument(
-      '--log_dir',
-      type=str,
-      default=os.path.join(os.getenv('TEST_TMPDIR', '/tmp'),
-                           'tensorflow/mnist/logs/mnist_with_summaries'),
-      help='Summaries log directory')
-  FLAGS, unparsed = parser.parse_known_args()
-  tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--fake_data', nargs='?', const=True, type=bool,
+                        default=False,
+                        help='If true, uses fake data for unit testing.')
+    parser.add_argument('--max_steps', type=int, default=1000,
+                        help='Number of steps to run trainer.')
+    parser.add_argument('--learning_rate', type=float, default=0.001,
+                        help='Initial learning rate')
+    parser.add_argument('--dropout', type=float, default=0.9,
+                        help='Keep probability for training dropout.')
+    parser.add_argument(
+        '--data_dir',
+        type=str,
+        default=os.path.join(os.getenv('TEST_TMPDIR', '/tmp'),
+                             'tensorflow/mnist/input_data'),
+        help='Directory for storing input data')
+    parser.add_argument(
+        '--log_dir',
+        type=str,
+        default=os.path.join(os.getenv('TEST_TMPDIR', '/tmp'),
+                             'tensorflow/mnist/logs/mnist_with_summaries'),
+        help='Summaries log directory')
+    FLAGS, unparsed = parser.parse_known_args()
+    tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)

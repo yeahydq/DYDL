@@ -154,7 +154,7 @@ def serving_input_fn():
     }
     return tf.estimator.export.ServingInputReceiver(add_engineered(features), feature_placeholders)
 
-
+# Do not use decode_csv as it's slower than pandas_input_fn
 # Create input function to load data into datasets, return dict with fieldName/value
 # def read_dataset(filename, mode, batch_size=512):
 #     def _input_fn():

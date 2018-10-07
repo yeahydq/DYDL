@@ -1,0 +1,2 @@
+/Users/dickye/Documents/codes/pycharm/solving_captchas_code_examples/tutorials/tfrecord/0.jpg 0
+/Users/dickye/Documents/codes/pycharm/solving_captchas_code_examples/tutorials/tfrecord/1.jpg 1
